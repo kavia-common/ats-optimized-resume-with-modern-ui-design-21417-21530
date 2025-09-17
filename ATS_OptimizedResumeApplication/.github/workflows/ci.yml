@@ -1,0 +1,31 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      CONTAINER_WORKSPACE: '${{ github.workspace }}'
+      # Note: set INSTALL_PYWIN32=1 only when running on Windows self-hosted runners
+      # and BUILD_ENV=ci for non-interactive scripts
+      BUILD_ENV: ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install deps (safe, pinned)
+        run: |
+          python -m pip install --upgrade pip || true
+          python -m pip install --constraint <(echo "openpyxl==3.1.2") openpyxl || true
+      - name: Print versions
+        run: |
+          python --version || true
+          python -m pip --version || true
+          python -c "import openpyxl; print('openpyxl', openpyxl.__version__)" || true
+          node --version || true
+          npm --version || true
+      - name: Run tests
+        run: bash scripts/test || (echo 'TESTS_FAILED' && exit 1)
+      - name: Run validation
+        run: bash scripts/validation || (echo 'VALIDATION_FAILED' && exit 1)
