@@ -15,6 +15,105 @@ Private Const KEY_ACTIVE_BRANCH As String = "active_branch"
 Private Const KEY_SECTION_ORDER As String = "section_order"
 Private Const KEY_USER_PREFS As String = "user_prefs"
 
+' Keys for keyword profiles and role selection
+Private Const KEY_ACTIVE_ROLE As String = "active_role"
+' Convention:
+'  - "keyword:default" -> comma-separated (or newline) list of default keywords (optional, complements built-ins)
+'  - "keyword:{role}"   -> list of keywords for the given role/industry (comma-separated or newline)
+'  - "keyword:user"     -> user-imported/added keywords (comma-separated or newline)
+
+' PUBLIC_INTERFACE
+Public Function GetActiveRole() As String
+    ' Returns the active role/industry context; empty means none selected
+    GetActiveRole = GetValue(KEY_ACTIVE_ROLE)
+End Function
+
+' PUBLIC_INTERFACE
+Public Sub SetActiveRole(ByVal roleName As String)
+    ' Sets the active role/industry context
+    SetValue KEY_ACTIVE_ROLE, Trim$(roleName)
+End Sub
+
+Private Function NormalizeKeywordListRaw(ByVal raw As String) As String
+    ' Normalizes list separators (comma/newline/semicolon) into newline-delimited storage
+    Dim s As String
+    s = Trim$(CStr(raw))
+    If Len(s) = 0 Then
+        NormalizeKeywordListRaw = ""
+        Exit Function
+    End If
+    ' Replace semicolons with commas
+    s = Replace(s, ";", ",")
+    ' Replace CRLF and CR with LF for consistent splitting
+    s = Replace(s, vbCrLf, vbLf)
+    s = Replace(s, vbCr, vbLf)
+    ' Replace commas with LF to unify
+    s = Replace(s, ",", vbLf)
+    ' Collapse multiple LFs
+    Do While InStr(1, s, vbLf & vbLf) > 0
+        s = Replace(s, vbLf & vbLf, vbLf)
+    Loop
+    NormalizeKeywordListRaw = s
+End Function
+
+Private Function SerializeKeywordList(ByVal arr As Variant) As String
+    ' Serializes array/collection to newline-delimited string
+    Dim i As Long, s As String
+    On Error GoTo done
+    For i = LBound(arr) To UBound(arr)
+        If Len(Trim$(CStr(arr(i)))) > 0 Then
+            If Len(s) > 0 Then s = s & vbCrLf
+            s = s & Trim$(CStr(arr(i)))
+        End If
+    Next i
+done:
+    SerializeKeywordList = s
+End Function
+
+' PUBLIC_INTERFACE
+Public Function GetKeywordList(ByVal key As String) As Variant
+    ' Loads and returns a 0-based array of keywords for the given key (e.g., "keyword:default", "keyword:Data Analyst")
+    Dim raw As String, norm As String, parts() As String
+    raw = GetValue(key)
+    norm = NormalizeKeywordListRaw(raw)
+    If Len(norm) = 0 Then
+        GetKeywordList = Array()
+        Exit Function
+    End If
+    parts = Split(norm, vbLf)
+    Dim i As Long
+    For i = LBound(parts) To UBound(parts)
+        parts(i) = Trim$(parts(i))
+    Next i
+    GetKeywordList = parts
+End Function
+
+' PUBLIC_INTERFACE
+Public Sub SetKeywordList(ByVal key As String, ByVal csvOrMultiline As String)
+    ' Saves keywords for the given key; accepts comma-separated or newline separated input
+    Dim norm As String
+    norm = NormalizeKeywordListRaw(csvOrMultiline)
+    SetValue key, norm
+End Sub
+
+' PUBLIC_INTERFACE
+Public Function ListAvailableRoles() As Collection
+    ' Scans Data sheet keys to list all roles with "keyword:{role}" entries
+    Dim ws As Worksheet, lastRow As Long, i As Long, k As String, c As New Collection
+    Set ws = SafeSheet(SHEET_DATA)
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    For i = 2 To lastRow
+        k = CStr(ws.Cells(i, COL_KEY).Value)
+        If LCase$(Left$(k, 8)) = "keyword:" Then
+            If LCase$(k) <> "keyword:default" And LCase$(k) <> "keyword:user" Then
+                ' Role key - strip prefix
+                c.Add Mid$(k, 9)
+            End If
+        End If
+    Next i
+    Set ListAvailableRoles = c
+End Function
+
 ' PUBLIC_INTERFACE
 Public Sub InitializeStorage()
     ' Initializes the Data sheet with headers if missing

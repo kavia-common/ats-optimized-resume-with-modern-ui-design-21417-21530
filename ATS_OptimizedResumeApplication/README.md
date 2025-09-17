@@ -23,7 +23,16 @@ How to use the VBA code in Excel:
    - Merge Into Active: UI.UI_MergeIntoActive
    - Apply Template: UI.UI_ApplyTemplate
    - Export PDF: UI.UI_ExportPDF
+   - Manage Keywords: UI.UI_ManageKeywords
    - Show Help: EntryPoint.App_ShowHelp
+
+UI notes for roles/keywords:
+- Cell B3 on UI holds the Active Role. You may link a change event to call UI.UI_RoleChanged.
+- Keyword profiles are stored in the hidden Data sheet as:
+  * keyword:default
+  * keyword:{role}
+  * keyword:user
+- BuildKeywordBank merges built-in defaults + keyword:default + keyword:{active role} + keyword:user (with de-duplication).
 6) Save as a macro-enabled workbook (.xlsm). Optionally use scripts/package_xlsm.sh to produce a CI placeholder.
 7) Use the UI sheet to manage resume sections, validate content, optimize keywords, and export PDFs.
 

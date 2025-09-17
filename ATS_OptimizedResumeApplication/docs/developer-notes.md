@@ -12,7 +12,7 @@ Key steps:
 
 Feature mapping:
 - Guided forms: UI.SetupUI + UI.UI_SectionChanged + UI.UI_SaveSection
-- ATS optimization: ATSEngine.* + UI.UpdateKeywordInsights
+- ATS optimization: ATSEngine.* + UI.UpdateKeywordInsights (supports role-based keyword profiles via DataModel keys: keyword:default, keyword:{role}, keyword:user; active role stored in DataModel KEY_ACTIVE_ROLE and surfaced on UI B3)
 - Formatting enforcement: Templates.* + ATSEngine.EnforceFormattingRules
 - Version control: VersionControl.* (auto-save, manual save, history)
 - Accessibility: Accessibility.* (Undo/Redo, protection)

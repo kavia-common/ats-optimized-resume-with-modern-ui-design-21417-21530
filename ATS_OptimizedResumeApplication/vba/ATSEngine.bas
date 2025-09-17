@@ -56,19 +56,70 @@ End Function
 
 ' PUBLIC_INTERFACE
 Public Function BuildKeywordBank(Optional roleContext As String = "") As Collection
-    ' Builds a keyword bank for ATS optimization combining defaults and role context heuristics
-    Dim c As Collection, k As Variant
-    Set c = DefaultKeywordBank()
-    ' Simple heuristic: if roleContext provided, add role words
-    If Len(roleContext) > 0 Then
-        On Error Resume Next
-        c.Add roleContext
-        c.Add "experience in " & roleContext
-        c.Add roleContext & " skills"
-        On Error GoTo 0
+    ' Builds a keyword bank combining:
+    '  - built-in defaults (hardcoded)
+    '  - Data! "keyword:default" (optional)
+    '  - Data! "keyword:{role}" when roleContext specified, else DataModel.GetActiveRole
+    '  - Data! "keyword:user" (user-added/imported)
+    Dim c As New Collection
+    Dim base As Collection, k As Variant
+    Dim roleUse As String
+    Dim arr As Variant
+    Dim i As Long, item As String
+
+    ' Start with hardcoded defaults
+    Set base = DefaultKeywordBank()
+    For Each k In base
+        SafeAddToCollection c, CStr(k)
+    Next k
+
+    ' Merge Data sheet defaults
+    arr = GetKeywordList("keyword:default")
+    For i = LBound(arr) To UBound(arr)
+        item = Trim$(CStr(arr(i)))
+        If Len(item) > 0 Then SafeAddToCollection c, item
+    Next i
+
+    ' Determine role to use
+    roleUse = Trim$(roleContext)
+    If Len(roleUse) = 0 Then roleUse = Trim$(GetActiveRole())
+    If Len(roleUse) > 0 Then
+        arr = GetKeywordList("keyword:" & roleUse)
+        For i = LBound(arr) To UBound(arr)
+            item = Trim$(CStr(arr(i)))
+            If Len(item) > 0 Then SafeAddToCollection c, item
+        Next i
+        ' Also add heuristic variations
+        SafeAddToCollection c, roleUse
+        SafeAddToCollection c, "experience in " & roleUse
+        SafeAddToCollection c, roleUse & " skills"
     End If
+
+    ' Merge user-added list
+    arr = GetKeywordList("keyword:user")
+    For i = LBound(arr) To UBound(arr)
+        item = Trim$(CStr(arr(i)))
+        If Len(item) > 0 Then SafeAddToCollection c, item
+    Next i
+
     Set BuildKeywordBank = c
 End Function
+
+Private Sub SafeAddToCollection(ByRef c As Collection, ByVal value As String)
+    ' Adds a unique lowercased value to collection (case-insensitive uniqueness)
+    Dim v As Variant
+    Dim normalized As String
+    normalized = LCase$(Trim$(value))
+    If Len(normalized) = 0 Then Exit Sub
+    Dim exists As Boolean: exists = False
+    For Each v In c
+        If LCase$(CStr(v)) = normalized Then
+            exists = True
+            Exit For
+        End If
+    Next v
+    If Not exists Then c.Add value
+End Sub
 
 ' PUBLIC_INTERFACE
 Public Function ScoreKeywords(ByVal resumeText As String, ByVal keywords As Collection) As Double
